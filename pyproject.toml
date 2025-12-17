@@ -1,0 +1,32 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "ask-my-health"
+version = "0.1.0"
+description = "Ask questions about your Apple Health export and get reliable, SQL-backed insights locally—a wellness-whisperer for your data."
+readme = "README.md"
+requires-python = ">=3.11"
+license = { text = "MIT" }
+authors = [{ name = "Sana Rajani" }]
+dependencies = [
+  "duckdb>=1.0.0",
+  "pandas>=2.2.0",
+  "requests>=2.31.0",
+  "streamlit>=1.36.0",
+]
+
+[project.optional-dependencies]
+dev = [
+  "pytest>=8.0.0",
+]
+
+[project.urls]
+Repository = "https://github.com/sana-rajani/ask-my-health"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["healthllm*"]
+
+
