@@ -12,6 +12,7 @@ license = { text = "MIT" }
 authors = [{ name = "Sana Rajani" }]
 dependencies = [
   "duckdb>=1.0.0",
+  "huggingface-hub>=0.24.0",
   "pandas>=2.2.0",
   "requests>=2.31.0",
   "streamlit>=1.36.0",

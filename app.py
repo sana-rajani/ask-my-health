@@ -72,6 +72,7 @@ with st.sidebar:
     st.header("LLM (optional)")
     st.write("If `HF_TOKEN` is set in your environment, the app will use Hugging Face text-to-SQL.")
     force_templates = st.checkbox("Force template mode (ignore HF_TOKEN)", value=False)
+    hf_strict = st.checkbox("HF strict mode (no fallback)", value=False)
 
 st.header("Ask a question")
 
@@ -90,7 +91,9 @@ if question:
 
     with st.chat_message("assistant"):
         try:
-            res = answer_steps_question(question=question, db_path=db_path, force_templates=force_templates)
+            res = answer_steps_question(
+                question=question, db_path=db_path, force_templates=force_templates, hf_strict=hf_strict
+            )
             _render_result(res)
             st.session_state.messages.append({"role": "assistant", "content": "Done."})
         except Exception as e:  # noqa: BLE001

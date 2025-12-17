@@ -9,7 +9,7 @@ import pandas as pd
 
 from healthllm.db import connect, init_schema
 from healthllm.sql_guard import SqlPolicy, validate_sql
-from healthllm.sqlgen_hf import hf_config_from_env, generate_sql_hf
+from healthllm.sqlgen_hf import HuggingFaceSqlGenError, hf_config_from_env, generate_sql_hf
 from healthllm.sqlgen_templates import generate_sql_from_templates
 
 
@@ -31,6 +31,7 @@ def answer_steps_question(
     question: str,
     db_path: str | Path = "data/ask_my_health.duckdb",
     force_templates: bool = False,
+    hf_strict: bool = False,
 ) -> QAResult:
     """
     Answer a steps-only question by generating safe SQL and executing locally in DuckDB.
@@ -47,8 +48,16 @@ def answer_steps_question(
     used_provider = "templates"
 
     if hf_cfg is not None:
-        sql = generate_sql_hf(question, hf_cfg)
-        used_provider = "hf"
+        try:
+            sql = generate_sql_hf(question, hf_cfg)
+            used_provider = "hf"
+        except HuggingFaceSqlGenError as e:
+            if hf_strict:
+                raise
+            # Keep the app usable even if HF routing/models are flaky.
+            match = generate_sql_from_templates(question)
+            sql = match.sql
+            used_provider = f"templates (hf_fallback: {type(e).__name__})"
     else:
         match = generate_sql_from_templates(question)
         sql = match.sql

@@ -4,6 +4,7 @@ import os
 import re
 from dataclasses import dataclass
 from typing import Any
+from urllib.parse import quote
 
 import requests
 
@@ -57,7 +58,20 @@ def _extract_sql_from_generated_text(prompt: str, generated: str) -> str:
 
 def generate_sql_hf(question: str, cfg: HfConfig) -> str:
     prompt = PROMPT_TEMPLATE.format(question=question.strip())
-    url = f"https://api-inference.huggingface.co/models/{cfg.model}"
+    # HF deprecated api-inference.huggingface.co; router is the supported entrypoint.
+    # The exact router path has changed over time; we try a small set of known variants.
+    # See: https://discuss.huggingface.co/t/error-https-api-inference-huggingface-co-is-no-longer-supported-please-use-https-router-huggingface-co-hf-inference-instead/169870
+    #
+    # NOTE: some router implementations treat {model} as a *single* path segment, so "org/model"
+    # must be URL-encoded as "org%2Fmodel". We try both forms.
+    model_raw = cfg.model
+    model_encoded = quote(cfg.model, safe="")
+    candidate_urls = [
+        f"https://router.huggingface.co/hf-inference/models/{model_raw}",
+        f"https://router.huggingface.co/hf-inference/models/{model_encoded}",
+        f"https://router.huggingface.co/models/{model_raw}",
+        f"https://router.huggingface.co/models/{model_encoded}",
+    ]
     headers = {"Authorization": f"Bearer {cfg.token}"}
     payload = {
         "inputs": prompt,
@@ -65,9 +79,20 @@ def generate_sql_hf(question: str, cfg: HfConfig) -> str:
         "options": {"wait_for_model": True},
     }
 
-    resp = requests.post(url, headers=headers, json=payload, timeout=cfg.timeout_s)
-    if resp.status_code >= 400:
-        raise HuggingFaceSqlGenError(f"HF request failed: {resp.status_code} {resp.text}")
+    last_error: str | None = None
+    for url in candidate_urls:
+        resp = requests.post(url, headers=headers, json=payload, timeout=cfg.timeout_s)
+        if resp.status_code == 404:
+            # 404 can mean wrong route OR token/model not eligible for this endpoint.
+            body = resp.text.strip()
+            body = body[:4000] + ("..." if len(body) > 4000 else "")
+            last_error = f"{resp.status_code} Not Found at {url}. body={body!r}"
+            continue
+        if resp.status_code >= 400:
+            raise HuggingFaceSqlGenError(f"HF request failed: {resp.status_code} {resp.text} (url={url})")
+        break
+    else:
+        raise HuggingFaceSqlGenError(f"HF request failed: {last_error or '404 Not Found'}")
 
     data: Any = resp.json()
     if isinstance(data, dict) and data.get("error"):
