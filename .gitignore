@@ -1,0 +1,26 @@
+.venv/
+__pycache__/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.DS_Store
+
+# Packaging/build artifacts
+*.egg-info/
+build/
+dist/
+.coverage
+htmlcov/
+
+# Local data (health exports + local DB)
+data/
+*.duckdb
+*.duckdb.wal
+*.duckdb.tmp
+*.parquet
+*.csv
+
+# Streamlit
+.streamlit/secrets.toml
+
+
