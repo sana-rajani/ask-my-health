@@ -4,16 +4,15 @@ import os
 import re
 from dataclasses import dataclass
 from typing import Any
-from urllib.parse import quote
 
-import requests
+from huggingface_hub import InferenceClient
 
 
 class HuggingFaceSqlGenError(RuntimeError):
     pass
 
 
-DEFAULT_MODEL = "defog/sqlcoder-7b-2"
+DEFAULT_MODEL = "deepseek-ai/DeepSeek-V3.2:novita"
 
 
 @dataclass(frozen=True)
@@ -57,53 +56,32 @@ def _extract_sql_from_generated_text(prompt: str, generated: str) -> str:
 
 
 def generate_sql_hf(question: str, cfg: HfConfig) -> str:
+    """
+    Generate SQL using Hugging Face Inference API with chat completions.
+    
+    Uses InferenceClient (like the notebook) which supports chat completions API,
+    required for models like deepseek-ai/DeepSeek-V3.2:novita.
+    """
     prompt = PROMPT_TEMPLATE.format(question=question.strip())
-    # HF deprecated api-inference.huggingface.co; router is the supported entrypoint.
-    # The exact router path has changed over time; we try a small set of known variants.
-    # See: https://discuss.huggingface.co/t/error-https-api-inference-huggingface-co-is-no-longer-supported-please-use-https-router-huggingface-co-hf-inference-instead/169870
-    #
-    # NOTE: some router implementations treat {model} as a *single* path segment, so "org/model"
-    # must be URL-encoded as "org%2Fmodel". We try both forms.
-    model_raw = cfg.model
-    model_encoded = quote(cfg.model, safe="")
-    candidate_urls = [
-        f"https://router.huggingface.co/hf-inference/models/{model_raw}",
-        f"https://router.huggingface.co/hf-inference/models/{model_encoded}",
-        f"https://router.huggingface.co/models/{model_raw}",
-        f"https://router.huggingface.co/models/{model_encoded}",
-    ]
-    headers = {"Authorization": f"Bearer {cfg.token}"}
-    payload = {
-        "inputs": prompt,
-        "parameters": {"temperature": 0, "max_new_tokens": 256, "return_full_text": False},
-        "options": {"wait_for_model": True},
-    }
-
-    last_error: str | None = None
-    for url in candidate_urls:
-        resp = requests.post(url, headers=headers, json=payload, timeout=cfg.timeout_s)
-        if resp.status_code == 404:
-            # 404 can mean wrong route OR token/model not eligible for this endpoint.
-            body = resp.text.strip()
-            body = body[:4000] + ("..." if len(body) > 4000 else "")
-            last_error = f"{resp.status_code} Not Found at {url}. body={body!r}"
-            continue
-        if resp.status_code >= 400:
-            raise HuggingFaceSqlGenError(f"HF request failed: {resp.status_code} {resp.text} (url={url})")
-        break
-    else:
-        raise HuggingFaceSqlGenError(f"HF request failed: {last_error or '404 Not Found'}")
-
-    data: Any = resp.json()
-    if isinstance(data, dict) and data.get("error"):
-        raise HuggingFaceSqlGenError(f"HF error: {data.get('error')}")
-
-    # Most common shape: [{"generated_text": "..."}]
-    if isinstance(data, list) and data and isinstance(data[0], dict) and "generated_text" in data[0]:
-        return _extract_sql_from_generated_text(prompt, str(data[0]["generated_text"]))
-
-    # Fallback: try a best-effort extraction.
-    return _strip_code_fences(str(data)).strip()
+    
+    try:
+        client = InferenceClient(api_key=cfg.token)
+        
+        completion = client.chat.completions.create(
+            model=cfg.model,
+            messages=[{"role": "user", "content": prompt}],
+            temperature=0,
+        )
+        
+        # Extract SQL from the response
+        sql = completion.choices[0].message.content
+        
+        # Clean up the SQL (remove code fences if any)
+        return _strip_code_fences(sql.strip())
+        
+    except Exception as e:
+        error_msg = str(e)
+        raise HuggingFaceSqlGenError(f"HF request failed: {error_msg}")
 
 
 def hf_config_from_env() -> HfConfig | None:

@@ -30,7 +30,7 @@ streamlit run app.py
 Set:
 
 - `HF_TOKEN` (your Hugging Face access token)
-- `HF_MODEL` (optional, default `defog/sqlcoder-7b-2`)
+- `HF_MODEL` (optional, default `deepseek-ai/DeepSeek-V3.2:novita`)
 
 If `HF_TOKEN` is not set, the app falls back to a small set of built-in SQL templates for common step questions.
 

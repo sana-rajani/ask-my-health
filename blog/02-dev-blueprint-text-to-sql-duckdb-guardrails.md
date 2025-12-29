@@ -39,7 +39,7 @@ The app enforces:
 
 v0.1 supports:
 
-- **Hosted HF** (default model: `defog/sqlcoder-7b-2`)
+- **Hosted HF** (default model: `deepseek-ai/DeepSeek-V3.2:novita`)
 - **No-token fallback** using a small template router for “golden questions” so demo/testing always works
 
 ## Testing strategy
