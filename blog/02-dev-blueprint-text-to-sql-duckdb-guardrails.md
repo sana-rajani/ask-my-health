@@ -12,7 +12,7 @@ So the core contract is:
 - **DuckDB**: execute the query and compute the true numeric answer.
 - **App**: show the SQL for transparency.
 
-## Architecture (v0.1)
+## Architecture (v1)
 
 - Ingest: Apple Health `export.xml` → aggregate into `daily_steps(date, steps)`
 - Q&A: question → SQL generator (HF model or templates) → SQL guardrails → DuckDB execute → display result
@@ -32,12 +32,12 @@ Keeping a curated table reduces:
 The app enforces:
 
 - **SELECT-only** queries
-- **table allow-list** (`daily_steps` only in v0.1)
+- **table allow-list** (`daily_steps` only in v1)
 - blocks common write/escape keywords: `INSERT`, `UPDATE`, `DELETE`, `CREATE`, `DROP`, `ATTACH`, `COPY`, `ALTER`, `PRAGMA`
 
 ## Provider strategy
 
-v0.1 supports:
+v1 supports:
 
 - **Hosted HF** (default model: `deepseek-ai/DeepSeek-V3.2:novita`)
 - **No-token fallback** using a small template router for “golden questions” so demo/testing always works

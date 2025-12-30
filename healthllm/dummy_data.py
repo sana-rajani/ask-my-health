@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta
 import math
 from pathlib import Path
 import random
@@ -59,6 +59,16 @@ def build_dummy_db(db_path: str | Path, cfg: DummyConfig = DummyConfig()) -> Pat
     con.register("df_daily_steps", df)
     con.execute(
         f"INSERT INTO {Schema.DAILY_STEPS_TABLE} SELECT CAST(date AS DATE) AS date, CAST(steps AS BIGINT) AS steps FROM df_daily_steps"
+    )
+    
+    # Set metadata to track source
+    con.execute(f"DELETE FROM {Schema.DATA_SOURCE_TABLE}")
+    con.execute(
+        f"""
+        INSERT INTO {Schema.DATA_SOURCE_TABLE} (id, source_type, source_path, last_updated)
+        VALUES (1, 'dummy', NULL, ?)
+        """,
+        [datetime.now()]
     )
     con.close()
     return path

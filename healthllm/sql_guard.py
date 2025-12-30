@@ -25,6 +25,16 @@ DISALLOWED_KEYWORDS = (
     "PRAGMA",
 )
 
+# Known SQL functions/constants that should not be treated as table names
+SQL_FUNCTIONS_AND_CONSTANTS = {
+    "current_date",
+    "current_time",
+    "current_timestamp",
+    "now",
+    "today",
+    "date",  # 'date' is a column name, not a table; if it appears after FROM/JOIN, it's incorrect usage
+}
+
 
 def _normalize_sql(sql: str) -> str:
     s = sql.strip()
@@ -37,13 +47,44 @@ def _normalize_sql(sql: str) -> str:
 
 
 _TABLE_REF_RE = re.compile(r"\b(?:FROM|JOIN)\s+([a-zA-Z_][\w\.]*)", re.IGNORECASE)
+_CTE_NAME_RE = re.compile(r"\bWITH\s+([a-zA-Z_][\w\.]*)\s+AS", re.IGNORECASE)
+
+
+def _find_cte_names(sql: str) -> set[str]:
+    """Extract CTE (Common Table Expression) names from WITH clauses."""
+    cte_names: set[str] = set()
+    # Match "WITH cte_name AS" patterns
+    for m in _CTE_NAME_RE.finditer(sql):
+        raw = m.group(1)
+        cte_name = raw.split(".")[-1].lower()
+        cte_names.add(cte_name)
+    
+    # Also handle multiple CTEs: "WITH cte1 AS (...), cte2 AS (...)"
+    # This is a simplified approach - find all identifiers after WITH and before AS
+    if sql.upper().strip().startswith("WITH"):
+        # Find the WITH clause section (up to the main SELECT)
+        upper_sql = sql.upper()
+        with_end = upper_sql.find("SELECT", upper_sql.find("WITH") + 4)
+        if with_end > 0:
+            with_clause = sql[:with_end]
+            # Match patterns like "cte_name AS" or ", cte_name AS"
+            cte_pattern = re.compile(r"(?:^|\s|,)\s*([a-zA-Z_][\w\.]*)\s+AS\s*\(", re.IGNORECASE | re.MULTILINE)
+            for m in cte_pattern.finditer(with_clause):
+                raw = m.group(1)
+                cte_name = raw.split(".")[-1].lower()
+                cte_names.add(cte_name)
+    
+    return cte_names
 
 
 def _find_tables(sql: str) -> Iterable[str]:
     for m in _TABLE_REF_RE.finditer(sql):
         raw = m.group(1)
         # Drop simple qualifiers like schema.table -> table
-        yield raw.split(".")[-1]
+        table_name = raw.split(".")[-1].lower()
+        # Skip SQL functions/constants
+        if table_name not in SQL_FUNCTIONS_AND_CONSTANTS:
+            yield table_name
 
 
 def validate_sql(sql: str, policy: SqlPolicy = SqlPolicy()) -> str:
@@ -80,7 +121,11 @@ def validate_sql(sql: str, policy: SqlPolicy = SqlPolicy()) -> str:
     if not tables:
         raise UnsafeSQLError("No table referenced.")
 
-    allowed = {t.lower() for t in policy.allowed_tables}
+    # Extract CTE names if the query uses WITH clauses
+    cte_names = _find_cte_names(sql)
+    
+    # Allow both policy tables and CTE names
+    allowed = {t.lower() for t in policy.allowed_tables} | cte_names
     unknown = sorted(t for t in tables if t not in allowed)
     if unknown:
         raise UnsafeSQLError(f"Query references non-allowed tables: {unknown}")

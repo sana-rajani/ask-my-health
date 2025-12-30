@@ -29,7 +29,7 @@ def generate_sql_from_templates(question: str) -> TemplateMatch:
     q = _norm(question)
 
     if "steps" not in q and "walk" not in q and "step" not in q:
-        raise NoTemplateMatchError("This v0.1 only supports step questions.")
+        raise NoTemplateMatchError("This v1 only supports step questions.")
 
     # Single-number queries (alias answer)
     if "this year" in q or "in 2025" in q or "this yr" in q:

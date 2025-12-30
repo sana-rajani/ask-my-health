@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import xml.etree.ElementTree as ET
 from dataclasses import dataclass
+from datetime import datetime
 from pathlib import Path
 from typing import Iterable
 
@@ -37,7 +38,7 @@ def ingest_steps_export_xml(
     """
     Parse Apple Health export.xml and populate daily_steps(date, steps).
 
-    Notes (v0.1):
+    Notes (v1):
     - We bucket by the local date embedded in startDate (YYYY-MM-DD prefix).
     - We sum all step records into that day.
     """
@@ -87,6 +88,16 @@ def ingest_steps_export_xml(
         SELECT CAST(date AS DATE) AS date, CAST(steps AS BIGINT) AS steps
         FROM df_daily_steps
         """
+    )
+    
+    # Set metadata to track source
+    con.execute(f"DELETE FROM {Schema.DATA_SOURCE_TABLE}")
+    con.execute(
+        f"""
+        INSERT INTO {Schema.DATA_SOURCE_TABLE} (id, source_type, source_path, last_updated)
+        VALUES (1, 'export_xml', ?, ?)
+        """,
+        [str(xml_path), datetime.now()]
     )
     con.close()
 
