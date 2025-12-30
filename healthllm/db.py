@@ -9,6 +9,7 @@ import duckdb
 @dataclass(frozen=True)
 class Schema:
     DAILY_STEPS_TABLE: str = "daily_steps"
+    DATA_SOURCE_TABLE: str = "data_source"
 
 
 def ensure_parent_dir(db_path: Path) -> None:
@@ -27,6 +28,17 @@ def init_schema(con: duckdb.DuckDBPyConnection) -> None:
         CREATE TABLE IF NOT EXISTS daily_steps (
           date DATE PRIMARY KEY,
           steps BIGINT
+        )
+        """
+    )
+    # Add metadata table to track data source
+    con.execute(
+        """
+        CREATE TABLE IF NOT EXISTS data_source (
+          id INTEGER PRIMARY KEY,
+          source_type TEXT NOT NULL,
+          source_path TEXT,
+          last_updated TIMESTAMP NOT NULL
         )
         """
     )

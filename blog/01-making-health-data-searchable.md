@@ -35,8 +35,8 @@ It does **not** send your Apple Health export or your row-level step data.
 2. Run the app locally
 3. Ask your questions
 
-## What’s next
+## What's next
 
-This v0.1 focuses on **steps only**. Future versions can add sleep, workouts, and more.
+This v1 focuses on **steps only**. Future versions can add sleep, workouts, and more.
 
 
